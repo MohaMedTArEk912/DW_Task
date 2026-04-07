@@ -113,3 +113,52 @@ INSERT INTO users (name, email) VALUES ('Jane Doe', 'jane@example.com');
 ```bash
 docker exec cdc_warehouse psql -U dw_user -d datawarehouse -c "SELECT * FROM dw_users;"
 ```
+
+latest 10 rows every 1 second:
+
+```bash
+while($true) { Clear-Host; echo "--- LIVE Data Warehouse View (Refreshes every 1s) ---"; docker exec cdc_warehouse psql -U dw_user -d datawarehouse -c "SELECT id, name, email, cdc_operation, TO_TIMESTAMP(cdc_timestamp/1000) AS event_time FROM dw_users ORDER BY dw_id DESC LIMIT 10;"; Start-Sleep -Seconds 1 }
+```
+
+🚀 Steps to Test and Demo (for your Prof)
+Run these steps in order to demonstrate the pipeline is working in real-time:
+
+1. Clean & Reset (Optional) If you want to start with a totally empty Data Warehouse:
+
+```bash
+bash scripts/rebuild-all.sh
+```
+
+2. Open the Monitoring Tools Open these in your browser so you can visually show the data moving:
+
+```bash
+NiFi (Flow): http://localhost:8081/nifi (You'll see the data "pulses" in the processors).
+Kafka UI: http://localhost:8090 (Go to Topics -> cdc.testdb.users to see the messages).
+```
+3. Make a "Live" Change in MySQL Open a terminal and add a user:
+
+```bash
+docker exec -i cdc_mysql mysql -u cdc_user -pcdc_password testdb -e "INSERT INTO users (name, email) VALUES ('Demo User', 'demo@example.com');"
+```
+
+4. Show the Instant Update in the Data Warehouse Immediately check the DW. You should see the new user there with the timestamp of when they were added:
+
+```bash
+docker exec cdc_warehouse psql -U dw_user -d datawarehouse -c "SELECT * FROM dw_users ORDER BY dw_id DESC LIMIT 1;"
+```
+
+5. Show an "Update" (CDC Proof) Change the user's name in MySQL:
+
+```bash
+docker exec -i cdc_mysql mysql -u cdc_user -pcdc_password testdb -e "UPDATE users SET name = 'Demo User UPDATED' WHERE name = 'Demo User';"
+```
+
+```bash
+docker exec -i cdc_mysql mysql -u cdc_user -pcdc_password testdb -e "DELETE FROM users WHERE name = 'reda';"
+```
+
+```bash
+docker exec -i cdc_mysql mysql -u cdc_user -pcdc_password testdb -e "DELETE FROM users WHERE id = 4;"
+```
+
+Check the DW again — you will see a new row with cdc_operation = 'u', which proves the listener "caught" the update event!
