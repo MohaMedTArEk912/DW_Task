@@ -159,7 +159,7 @@ services:
       warehouse:
         condition: service_healthy
     ports:
-      - "8080:8080"   # NiFi UI (http://localhost:8080/nifi)
+      - "8081:8080"   # NiFi UI (http://localhost:8081/nifi)
     environment:
       NIFI_WEB_HTTP_PORT: 8080
       SINGLE_USER_CREDENTIALS_USERNAME: admin
